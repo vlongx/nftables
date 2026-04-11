@@ -9,10 +9,16 @@ validate_proto() {
     case "$1" in
         tcp|udp|both) ;;
         *)
-            err '协议必须是 tcp、udp 或 both'
+            err "协议必须是 tcp、udp 或 both"
             return 1
             ;;
     esac
+}
+
+validate_port() {
+    local p="$1"
+    [[ "$p" =~ ^[0-9]+$ ]] || return 1
+    [ "$p" -ge 1 ] && [ "$p" -le 65535 ]
 }
 
 render_ruleset() {
@@ -53,7 +59,7 @@ apply_ruleset() {
     nft -c -f "$VL_NFT_FILE"
     nft -f "$VL_NFT_FILE"
     systemctl restart nftables >/dev/null 2>&1 || true
-    success '规则已应用'
+    success "规则已应用"
 }
 
 add_rule_cli() {
@@ -63,10 +69,17 @@ add_rule_cli() {
     local listen_port proto target_ip target_port remark id
 
     read -rp '监听端口: ' listen_port
+    validate_port "$listen_port" || { err "监听端口无效"; return 1; }
+
     read -rp '协议 [tcp/udp/both]: ' proto
     validate_proto "$proto" || return 1
+
     read -rp '目标 IP: ' target_ip
+    [ -n "$target_ip" ] || { err "目标 IP 不能为空"; return 1; }
+
     read -rp '目标端口: ' target_port
+    validate_port "$target_port" || { err "目标端口无效"; return 1; }
+
     read -rp '备注: ' remark
 
     id="$(next_rule_id)"
