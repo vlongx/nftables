@@ -1,105 +1,271 @@
 #!/bin/bash
+set -euo pipefail
 
-# vl - VLONGX 端口转发管理工具
-# Bootstrap 引导器 + 入口
+VL_LANG_FILE="/etc/vlongx/lang"
 
-INSTALL_DIR="/usr/local/bin"
-LIB_DIR="$INSTALL_DIR/lib"
-SHORTCUT_PATH="/usr/local/bin/vl"
-APP_HOME="/opt/vlongx"
-
-REPO_RAW_URL="https://raw.githubusercontent.com/vlongx/nftables/main"
-
-LIB_FILES=("core.sh" "rules.sh" "server.sh" "ui.sh")
-
-_RED='\033[0;31m'
-_GREEN='\033[0;32m'
-_YELLOW='\033[1;33m'
-_BLUE='\033[0;34m'
-_NC='\033[0m'
-
-_download() {
-    local url="$1" target="$2"
-    curl -fsSL --connect-timeout 10 --max-time 60 "$url" -o "$target" 2>/dev/null ||
-    wget -qO "$target" "$url" 2>/dev/null
+get_lang() {
+    if [ -f "$VL_LANG_FILE" ]; then
+        cat "$VL_LANG_FILE"
+    else
+        echo "zh"
+    fi
 }
 
-_bootstrap() {
-    echo -e "${_YELLOW}正在安装/更新脚本文件...${_NC}"
+set_lang() {
+    require_root
+    mkdir -p /etc/vlongx
+    echo "$1" > "$VL_LANG_FILE"
+}
 
-    mkdir -p "$LIB_DIR" "$APP_HOME/web" "$APP_HOME/systemd"
+tr_text() {
+    local key="$1"
+    local lang
+    lang="$(get_lang)"
 
-    if _download "$REPO_RAW_URL/vl.sh" "$INSTALL_DIR/vl.sh"; then
-        chmod +x "$INSTALL_DIR/vl.sh"
-        echo -e "  ${_GREEN}✓${_NC} vl.sh"
-    else
-        echo -e "  ${_RED}✗${_NC} vl.sh 下载失败"
-        return 1
+    case "$lang:$key" in
+        zh:title) echo "VLONGX 面板" ;;
+        en:title) echo "VLONGX Panel" ;;
+
+        zh:subtitle) echo "增强安装版 v1.0" ;;
+        en:subtitle) echo "Enhanced Setup v1.0" ;;
+
+        zh:server_info) echo "服务器信息" ;;
+        en:server_info) echo "Server Information" ;;
+
+        zh:server_ip) echo "服务器 IP" ;;
+        en:server_ip) echo "Server IP" ;;
+
+        zh:rule_store) echo "规则存储" ;;
+        en:rule_store) echo "Rule Store" ;;
+
+        zh:version) echo "版本" ;;
+        en:version) echo "Version" ;;
+
+        zh:m1) echo "1) 安装并初始化 VLONGX 面板" ;;
+        en:m1) echo "1) Install & Set Up VLONGX Panel" ;;
+
+        zh:m2) echo "2) 添加转发规则" ;;
+        en:m2) echo "2) Add forwarding rule" ;;
+
+        zh:m3) echo "3) 查看规则列表" ;;
+        en:m3) echo "3) List rules" ;;
+
+        zh:m4) echo "4) 删除转发规则" ;;
+        en:m4) echo "4) Delete rule" ;;
+
+        zh:m5) echo "5) 应用 nftables 规则" ;;
+        en:m5) echo "5) Apply nftables rules" ;;
+
+        zh:m6) echo "6) 查看面板状态" ;;
+        en:m6) echo "6) Show panel status" ;;
+
+        zh:m7) echo "7) 切换语言 / Switch Language" ;;
+        en:m7) echo "7) Switch Language / 切换语言" ;;
+
+        zh:m0) echo "0) 退出" ;;
+        en:m0) echo "0) Exit" ;;
+
+        zh:prompt) echo -n "请输入选项 [0-7]: " ;;
+        en:prompt) echo -n "Please enter your choice [0-7]: " ;;
+
+        zh:press_enter) echo -n "按回车继续..." ;;
+        en:press_enter) echo -n "Press Enter to continue..." ;;
+
+        zh:invalid) echo "无效选项，请重新输入" ;;
+        en:invalid) echo "Invalid option, please try again" ;;
+
+        zh:exit_msg) echo "已退出。" ;;
+        en:exit_msg) echo "Exited." ;;
+
+        zh:choose_lang) echo -e "1) 中文\n2) English" ;;
+        en:choose_lang) echo -e "1) 中文\n2) English" ;;
+
+        zh:choose_lang_prompt) echo -n "请选择语言 [1-2]: " ;;
+        en:choose_lang_prompt) echo -n "Choose language [1-2]: " ;;
+
+        zh:lang_zh_saved) echo "语言已切换为中文" ;;
+        en:lang_zh_saved) echo "Language switched to Chinese" ;;
+
+        zh:lang_en_saved) echo "语言已切换为 English" ;;
+        en:lang_en_saved) echo "Language switched to English" ;;
+
+        zh:lang_invalid) echo "语言选项无效" ;;
+        en:lang_invalid) echo "Invalid language option" ;;
+
+        *) echo "$key" ;;
+    esac
+}
+
+get_server_ip() {
+    local ip
+    ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    if [ -z "${ip:-}" ]; then
+        ip="127.0.0.1"
     fi
+    echo "$ip"
+}
 
-    local failed=0
+draw_line() {
+    printf '%*s\n' "$1" '' | tr ' ' '─'
+}
 
-    for f in "${LIB_FILES[@]}"; do
-        if _download "$REPO_RAW_URL/lib/$f" "$LIB_DIR/$f"; then
-            chmod +x "$LIB_DIR/$f"
-            echo -e "  ${_GREEN}✓${_NC} lib/$f"
-        else
-            echo -e "  ${_RED}✗${_NC} lib/$f 下载失败"
-            failed=1
-        fi
-    done
+show_banner() {
+    clear
+    printf '\033[2J\033[H'
 
-    if _download "$REPO_RAW_URL/web/vl-panel.html" "$APP_HOME/web/vl-panel.html"; then
-        echo -e "  ${_GREEN}✓${_NC} web/vl-panel.html"
-    else
-        echo -e "  ${_RED}✗${_NC} web/vl-panel.html 下载失败"
-        failed=1
-    fi
+    local pink='\033[38;5;212m'
+    local green='\033[38;5;82m'
+    local blue='\033[38;5;45m'
+    local orange='\033[38;5;216m'
+    local white='\033[38;5;252m'
+    local reset='\033[0m'
 
-    if _download "$REPO_RAW_URL/systemd/vl-panel.service" "$APP_HOME/systemd/vl-panel.service"; then
-        echo -e "  ${_GREEN}✓${_NC} systemd/vl-panel.service"
-    else
-        echo -e "  ${_RED}✗${_NC} systemd/vl-panel.service 下载失败"
-        failed=1
-    fi
+    echo -e "${pink}"
+    cat <<'TXT'
+██    ██ ██       ██████  ███    ██  ██████  ██   ██
+██    ██ ██      ██    ██ ████   ██ ██       ██   ██
+██    ██ ██      ██    ██ ██ ██  ██ ██   ███ ███████
+ ██  ██  ██      ██    ██ ██  ██ ██ ██    ██ ██   ██
+  ████   ███████  ██████  ██   ████  ██████  ██   ██
+TXT
+    echo -e "${reset}"
 
-    [ "$failed" -eq 1 ] && return 1
+    echo -e "${pink}$(tr_text title)${reset}"
+    echo -e "${blue}$(tr_text subtitle)${reset}"
+    echo ""
 
-    ln -sf "$INSTALL_DIR/vl.sh" "$SHORTCUT_PATH"
-    echo -e "${_GREEN}✓ 快捷命令已创建: vl${_NC}"
-    echo -e "${_GREEN}=== 脚本安装完成${_NC}"
+    echo -e "${green}┌──────────────────────────────────────────────────────────────┐${reset}"
+    printf "${green}│${reset} %-60s ${green}│${reset}\n" "$(tr_text server_info)"
+    printf "${green}│${reset} • %s: ${orange}%-47s${reset} ${green}│${reset}\n" "$(tr_text server_ip)" "$(get_server_ip)"
+    printf "${green}│${reset} • %s: ${white}%-45s${reset} ${green}│${reset}\n" "$(tr_text rule_store)" "/etc/vlongx/rules.db"
+    printf "${green}│${reset} • %s: ${white}%-52s${reset} ${green}│${reset}\n" "$(tr_text version)" "v1.0"
+    echo -e "${green}└──────────────────────────────────────────────────────────────┘${reset}"
     echo ""
 }
 
-_load_libs() {
-    if [ ! -d "$LIB_DIR" ] || [ ! -f "$LIB_DIR/core.sh" ]; then
-        echo -e "${_RED}错误: 未找到模块目录，请先安装${_NC}"
-        echo -e "${_BLUE}wget -qO- ${REPO_RAW_URL}/vl.sh | sudo bash -s install${_NC}"
-        return 1
-    fi
+switch_language() {
+    echo ""
+    echo -e "${_CYAN}$(tr_text choose_lang)${_NC}"
+    echo ""
+    printf "%s" "$(tr_text choose_lang_prompt)"
+    read -r lang_choice
 
-    for f in "${LIB_FILES[@]}"; do
-        if [ -f "$LIB_DIR/$f" ]; then
-            source "$LIB_DIR/$f"
-        else
-            echo -e "${_RED}错误: 缺少模块 $f${_NC}"
-            return 1
-        fi
+    case "$lang_choice" in
+        1)
+            set_lang zh
+            success "$(tr_text lang_zh_saved)"
+            ;;
+        2)
+            set_lang en
+            success "$(tr_text lang_en_saved)"
+            ;;
+        *)
+            warn "$(tr_text lang_invalid)"
+            ;;
+    esac
+}
+
+main_menu() {
+    local green='\033[38;5;82m'
+    local blue='\033[38;5;45m'
+    local pink='\033[38;5;212m'
+    local orange='\033[38;5;216m'
+    local reset='\033[0m'
+
+    while true; do
+        show_banner
+
+        echo -e "${green}$(tr_text m1)${reset}"
+        echo -e "${green}$(tr_text m2)${reset}"
+        echo -e "${blue}$(tr_text m3)${reset}"
+        echo -e "${green}$(tr_text m4)${reset}"
+        echo -e "${blue}$(tr_text m5)${reset}"
+        echo -e "${pink}$(tr_text m6)${reset}"
+        echo -e "${orange}$(tr_text m7)${reset}"
+        echo -e "${orange}$(tr_text m0)${reset}"
+        echo ""
+        echo -e "\033[38;5;240m────────────────────────────────────────────\033[0m"
+        printf "%s" "$(tr_text prompt)"
+        read -r choice
+
+        case "$choice" in
+            1)
+                install_panel_service
+                printf "%s" "$(tr_text press_enter)"
+                read -r
+                ;;
+            2)
+                add_rule_cli
+                printf "%s" "$(tr_text press_enter)"
+                read -r
+                ;;
+            3)
+                list_rules
+                printf "%s" "$(tr_text press_enter)"
+                read -r
+                ;;
+            4)
+                delete_rule_cli
+                printf "%s" "$(tr_text press_enter)"
+                read -r
+                ;;
+            5)
+                apply_ruleset
+                printf "%s" "$(tr_text press_enter)"
+                read -r
+                ;;
+            6)
+                show_panel_status
+                printf "%s" "$(tr_text press_enter)"
+                read -r
+                ;;
+            7)
+                switch_language
+                sleep 1
+                ;;
+            0)
+                echo -e "${_GREEN}$(tr_text exit_msg)${_NC}"
+                exit 0
+                ;;
+            *)
+                warn "$(tr_text invalid)"
+                sleep 1
+                ;;
+        esac
     done
 }
 
-case "${1:-}" in
-    install)
-        [ "$(id -u)" -ne 0 ] && {
-            echo -e "${_RED}错误: 需要 root 权限${_NC}"
-            exit 1
-        }
-        _bootstrap || exit 1
-        _load_libs || exit 1
-        _SKIP_SCRIPT_UPDATE=1 smart_install
-        ;;
-    *)
-        _load_libs || exit 1
-        main "$@"
-        ;;
-esac
+main() {
+    case "${1:-menu}" in
+        menu)
+            main_menu
+            ;;
+        add)
+            add_rule_cli
+            ;;
+        list)
+            list_rules
+            ;;
+        delete|del)
+            delete_rule_cli
+            ;;
+        apply)
+            apply_ruleset
+            ;;
+        panel-install)
+            install_panel_service
+            ;;
+        panel-status)
+            show_panel_status
+            ;;
+        lang-zh)
+            set_lang zh
+            ;;
+        lang-en)
+            set_lang en
+            ;;
+        *)
+            main_menu
+            ;;
+    esac
+}
