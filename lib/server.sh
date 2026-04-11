@@ -6,7 +6,6 @@ install_nft_main_conf() {
     cat > /etc/nftables.conf <<EOF
 #!/usr/sbin/nft -f
 
-flush ruleset
 include "$VL_NFT_FILE"
 EOF
     success "已写入 /etc/nftables.conf"
@@ -33,6 +32,7 @@ show_runtime_status() {
 smart_install() {
     ensure_dirs
     install_deps
+    ensure_rule_db_schema
     render_ruleset
     install_nft_main_conf
     nft -c -f /etc/nftables.conf
