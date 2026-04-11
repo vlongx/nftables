@@ -19,6 +19,18 @@ wget -qO- https://raw.githubusercontent.com/vlongx/nftables/main/vl.sh | sudo ba
 ```bash
 wget -qO- https://ghfast.top/https://raw.githubusercontent.com/vlongx/nftables/main/vl.sh | sudo bash -s install
 ```
+#### 如果出现错误重新安装，先清理旧文件再装：
+```bash
+sudo rm -f /usr/local/bin/vl /usr/local/bin/vl.sh
+sudo rm -rf /usr/local/bin/lib
+sudo rm -rf /opt/vlongx
+sudo rm -rf /etc/vlongx
+sudo rm -f /etc/systemd/system/vl-panel.service
+sudo systemctl daemon-reload
+```
+然后再执行安装命令。
+
+
 ---
 ### 核心特性
 
