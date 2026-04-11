@@ -1,15 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
-VL_LANG_FILE="/etc/vlongx/lang"
-
 get_lang() {
     [ -f "$VL_LANG_FILE" ] && cat "$VL_LANG_FILE" || echo "zh"
 }
 
 set_lang() {
     require_root
-    mkdir -p /etc/vlongx
+    mkdir -p "$VL_CONF_DIR"
     echo "$1" > "$VL_LANG_FILE"
 }
 
@@ -19,50 +17,35 @@ tr_text() {
     lang="$(get_lang)"
 
     case "$lang:$key" in
-        zh:title) echo "VLONGX 面板" ;;
-        en:title) echo "VLONGX Panel" ;;
+        zh:title) echo "VLONGX" ;;
+        en:title) echo "VLONGX" ;;
 
-        zh:subtitle) echo "增强安装版 v1.0" ;;
-        en:subtitle) echo "Enhanced Setup v1.0" ;;
+        zh:subtitle) echo "基于 nftables 转发服务" ;;
+        en:subtitle) echo "Forwarding Service Based on nftables" ;;
 
-        zh:box_title) echo "面板信息" ;;
-        en:box_title) echo "Panel Information" ;;
+        zh:m1) echo "1) 添加转发规则" ;;
+        en:m1) echo "1) Add forwarding rule" ;;
 
-        zh:server_ip) echo "服务器 IP" ;;
-        en:server_ip) echo "Server IP" ;;
+        zh:m2) echo "2) 查看规则列表" ;;
+        en:m2) echo "2) List rules" ;;
 
-        zh:rule_store) echo "规则存储" ;;
-        en:rule_store) echo "Rule Store" ;;
+        zh:m3) echo "3) 删除转发规则" ;;
+        en:m3) echo "3) Delete rule" ;;
 
-        zh:version) echo "版本" ;;
-        en:version) echo "Version" ;;
+        zh:m4) echo "4) 应用 nftables 规则" ;;
+        en:m4) echo "4) Apply nftables rules" ;;
 
-        zh:m1) echo "1) 安装并初始化 VLONGX 面板" ;;
-        en:m1) echo "1) Install & Set Up VLONGX Panel" ;;
+        zh:m5) echo "5) 查看运行状态" ;;
+        en:m5) echo "5) Show runtime status" ;;
 
-        zh:m2) echo "2) 添加转发规则" ;;
-        en:m2) echo "2) Add forwarding rule" ;;
-
-        zh:m3) echo "3) 查看规则列表" ;;
-        en:m3) echo "3) List rules" ;;
-
-        zh:m4) echo "4) 删除转发规则" ;;
-        en:m4) echo "4) Delete rule" ;;
-
-        zh:m5) echo "5) 应用 nftables 规则" ;;
-        en:m5) echo "5) Apply nftables rules" ;;
-
-        zh:m6) echo "6) 查看面板状态" ;;
-        en:m6) echo "6) Show panel status" ;;
-
-        zh:m7) echo "7) 切换语言 / Switch Language" ;;
-        en:m7) echo "7) Switch Language / 切换语言" ;;
+        zh:m6) echo "6) 切换语言 / Switch Language" ;;
+        en:m6) echo "6) Switch Language / 切换语言" ;;
 
         zh:m0) echo "0) 退出" ;;
         en:m0) echo "0) Exit" ;;
 
-        zh:prompt) echo -n "请输入选项 [0-7]: " ;;
-        en:prompt) echo -n "Please enter your choice [0-7]: " ;;
+        zh:prompt) echo -n "请输入选项 [0-6]: " ;;
+        en:prompt) echo -n "Please enter your choice [0-6]: " ;;
 
         zh:press_enter) echo -n "按回车继续..." ;;
         en:press_enter) echo -n "Press Enter to continue..." ;;
@@ -92,12 +75,6 @@ tr_text() {
     esac
 }
 
-get_server_ip() {
-    local ip
-    ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
-    [ -n "${ip:-}" ] && echo "$ip" || echo "127.0.0.1"
-}
-
 init_colors() {
     C_RESET='\033[0m'
     C_TITLE='\033[38;5;169m'
@@ -105,11 +82,10 @@ init_colors() {
     C_MENU1='\033[38;5;28m'
     C_MENU2='\033[38;5;24m'
     C_MENU3='\033[38;5;130m'
-    C_MENU4='\033[38;5;88m'
-    C_TEXT='\033[38;5;238m'
+    C_MENU4='\033[38;5;31m'
+    C_MENU5='\033[38;5;95m'
+    C_MENU6='\033[38;5;136m'
     C_DIM='\033[38;5;245m'
-    C_BOX='\033[38;5;65m'
-    C_HL='\033[38;5;161m'
 }
 
 show_logo() {
@@ -118,19 +94,10 @@ show_logo() {
 ██    ██ ██       ██████  ███    ██  ██████  ██   ██
 ██    ██ ██      ██    ██ ████   ██ ██       ██   ██
 ██    ██ ██      ██    ██ ██ ██  ██ ██   ███ ███████
- ██  ██  ██      ██    ██ ██  ██ ██ ██    ██ ██   ██
-  ████   ███████  ██████  ██   ████  ██████  ██   ██
+ ██  ██  ██      ██    ██ ██  ██ ██ ██    ██     ██
+  ████   ███████  ██████  ██   ████  ██████     ██
 TXT
     echo -e "${C_RESET}"
-}
-
-show_info_box() {
-    echo -e "${C_BOX}┌──────────────────────────────────────────────────────┐${C_RESET}"
-    printf "${C_BOX}│${C_RESET} %-52s ${C_BOX}│${C_RESET}\n" "$(tr_text box_title)"
-    printf "${C_BOX}│${C_RESET} • %-12s: ${C_HL}%-34s${C_RESET} ${C_BOX}│${C_RESET}\n" "$(tr_text server_ip)" "$(get_server_ip)"
-    printf "${C_BOX}│${C_RESET} • %-12s: ${C_DIM}%-34s${C_RESET} ${C_BOX}│${C_RESET}\n" "$(tr_text rule_store)" "/etc/vlongx/rules.db"
-    printf "${C_BOX}│${C_RESET} • %-12s: ${C_DIM}%-34s${C_RESET} ${C_BOX}│${C_RESET}\n" "$(tr_text version)" "v1.0"
-    echo -e "${C_BOX}└──────────────────────────────────────────────────────┘${C_RESET}"
 }
 
 show_banner() {
@@ -140,7 +107,7 @@ show_banner() {
     echo -e "${C_TITLE}$(tr_text title)${C_RESET}"
     echo -e "${C_SUB}$(tr_text subtitle)${C_RESET}"
     echo ""
-    show_info_box
+    echo -e "${C_DIM}────────────────────────────────────────────${C_RESET}"
     echo ""
 }
 
@@ -172,26 +139,24 @@ main_menu() {
     while true; do
         show_banner
         echo -e "${C_MENU1}$(tr_text m1)${C_RESET}"
-        echo -e "${C_MENU1}$(tr_text m2)${C_RESET}"
-        echo -e "${C_MENU2}$(tr_text m3)${C_RESET}"
-        echo -e "${C_MENU3}$(tr_text m4)${C_RESET}"
-        echo -e "${C_MENU2}$(tr_text m5)${C_RESET}"
-        echo -e "${C_TITLE}$(tr_text m6)${C_RESET}"
-        echo -e "${C_MENU3}$(tr_text m7)${C_RESET}"
-        echo -e "${C_MENU4}$(tr_text m0)${C_RESET}"
+        echo -e "${C_MENU2}$(tr_text m2)${C_RESET}"
+        echo -e "${C_MENU3}$(tr_text m3)${C_RESET}"
+        echo -e "${C_MENU4}$(tr_text m4)${C_RESET}"
+        echo -e "${C_MENU5}$(tr_text m5)${C_RESET}"
+        echo -e "${C_MENU6}$(tr_text m6)${C_RESET}"
+        echo -e "${C_DIM}$(tr_text m0)${C_RESET}"
         echo ""
-        echo -e "${C_DIM}────────────────────────────────────${C_RESET}"
+        echo -e "${C_DIM}────────────────────────────────────────────${C_RESET}"
         printf "%s" "$(tr_text prompt)"
         read -r choice
 
         case "$choice" in
-            1) install_panel_service; printf "%s" "$(tr_text press_enter)"; read -r ;;
-            2) add_rule_cli; printf "%s" "$(tr_text press_enter)"; read -r ;;
-            3) list_rules; printf "%s" "$(tr_text press_enter)"; read -r ;;
-            4) delete_rule_cli; printf "%s" "$(tr_text press_enter)"; read -r ;;
-            5) apply_ruleset; printf "%s" "$(tr_text press_enter)"; read -r ;;
-            6) show_panel_status; printf "%s" "$(tr_text press_enter)"; read -r ;;
-            7) switch_language; sleep 1 ;;
+            1) add_rule_cli; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            2) list_rules; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            3) delete_rule_cli; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            4) apply_ruleset; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            5) show_runtime_status; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            6) switch_language; sleep 1 ;;
             0) echo -e "${C_SUB}$(tr_text exit_msg)${C_RESET}"; exit 0 ;;
             *) warn "$(tr_text invalid)"; sleep 1 ;;
         esac
@@ -205,8 +170,7 @@ main() {
         list) list_rules ;;
         delete|del) delete_rule_cli ;;
         apply) apply_ruleset ;;
-        panel-install) install_panel_service ;;
-        panel-status) show_panel_status ;;
+        status) show_runtime_status ;;
         lang-zh) set_lang zh ;;
         lang-en) set_lang en ;;
         *) main_menu ;;
