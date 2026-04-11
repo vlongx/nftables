@@ -94,5 +94,6 @@ nftables/
 │   ├── rules.sh
 │   ├── server.sh
 │   └── ui.sh
+├── LICENSE
 ├── README.md
 └── vl.sh
