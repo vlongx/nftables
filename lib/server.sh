@@ -1,5 +1,20 @@
 #!/bin/bash
 set -euo pipefail
-install_panel_service(){ require_root; ensure_dirs; [ -f "$VL_HOME/systemd/vl-panel.service" ] || { err '未找到 /opt/vlongx/systemd/vl-panel.service'; return 1; }; [ -f "$VL_HOME/web/vl-panel.html" ] || { err '未找到 /opt/vlongx/web/vl-panel.html'; return 1; }; install -Dm644 "$VL_HOME/systemd/vl-panel.service" /etc/systemd/system/vl-panel.service; sed -i "s#__VL_HOME__#$VL_HOME#g" /etc/systemd/system/vl-panel.service; sed -i "s#__VL_PANEL_PORT__#$VL_PANEL_PORT#g" /etc/systemd/system/vl-panel.service; systemctl daemon-reload; systemctl enable --now vl-panel.service; success "面板已启动: http://127.0.0.1:${VL_PANEL_PORT}/vl-panel.html"; }
-show_panel_status(){ systemctl status vl-panel.service --no-pager || true; }
-smart_install(){ ensure_dirs; install_deps; apply_ruleset || true; install_panel_service; success 'vlongx 安装完成'; }
+
+show_runtime_status() {
+    echo "========== VLONGX 状态 =========="
+    echo "规则文件: $VL_RULE_DB"
+    echo "nft 配置: $VL_NFT_FILE"
+    echo "nftables 服务:"
+    systemctl is-active nftables 2>/dev/null || true
+    echo ""
+    echo "当前规则:"
+    list_rules
+}
+
+smart_install() {
+    ensure_dirs
+    install_deps
+    apply_ruleset || true
+    success "VLONGX CLI 安装完成"
+}
