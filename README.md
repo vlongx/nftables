@@ -14,12 +14,11 @@
 ### 海外服务器
 ```bash
 wget -qO- https://raw.githubusercontent.com/vlongx/nftables/main/vl.sh | sudo bash -s install
-
+```
 ### 国内服务器
 ```bash
 wget -qO- https://ghfast.top/https://raw.githubusercontent.com/vlongx/nftables/main/vl.sh | sudo bash -s install
-
-
+```
 ---
 
 ## 功能特性
