@@ -4,7 +4,6 @@ set -e
 INSTALL_DIR="/usr/local/bin"
 LIB_DIR="$INSTALL_DIR/lib"
 SHORTCUT_PATH="/usr/local/bin/vl"
-APP_HOME="/opt/vlongx"
 REPO_RAW_URL="https://raw.githubusercontent.com/vlongx/nftables/main"
 LIB_FILES=("core.sh" "rules.sh" "server.sh" "ui.sh")
 
@@ -23,7 +22,7 @@ _download() {
 _bootstrap() {
     echo -e "${_YELLOW}正在安装/更新脚本文件...${_NC}"
 
-    mkdir -p "$LIB_DIR" "$APP_HOME/web" "$APP_HOME/systemd"
+    mkdir -p "$LIB_DIR"
 
     if _download "$REPO_RAW_URL/vl.sh" "$INSTALL_DIR/vl.sh"; then
         chmod +x "$INSTALL_DIR/vl.sh"
@@ -34,7 +33,6 @@ _bootstrap() {
     fi
 
     local failed=0
-
     for f in "${LIB_FILES[@]}"; do
         if _download "$REPO_RAW_URL/lib/$f" "$LIB_DIR/$f"; then
             chmod +x "$LIB_DIR/$f"
@@ -44,20 +42,6 @@ _bootstrap() {
             failed=1
         fi
     done
-
-    if _download "$REPO_RAW_URL/web/vl-panel.html" "$APP_HOME/web/vl-panel.html"; then
-        echo -e "  ${_GREEN}✓${_NC} web/vl-panel.html"
-    else
-        echo -e "  ${_RED}✗${_NC} web/vl-panel.html 下载失败"
-        failed=1
-    fi
-
-    if _download "$REPO_RAW_URL/systemd/vl-panel.service" "$APP_HOME/systemd/vl-panel.service"; then
-        echo -e "  ${_GREEN}✓${_NC} systemd/vl-panel.service"
-    else
-        echo -e "  ${_RED}✗${_NC} systemd/vl-panel.service 下载失败"
-        failed=1
-    fi
 
     [ "$failed" -eq 1 ] && return 1
 
