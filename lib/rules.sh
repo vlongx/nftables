@@ -25,29 +25,40 @@ render_ruleset() {
     require_root
     ensure_dirs
 
-    nft delete table ip vlongx >/dev/null 2>&1 || true
-
     cat > "$VL_NFT_FILE" <<'NFT'
 #!/usr/sbin/nft -f
 
 table ip vlongx {
     chain prerouting {
         type nat hook prerouting priority -100;
+        policy accept;
     }
 
     chain postrouting {
         type nat hook postrouting priority 100;
+        policy accept;
+    }
+}
+
+table inet vlongx_filter {
+    chain forward {
+        type filter hook forward priority filter;
+        policy accept;
     }
 }
 NFT
 
     awk -F'|' '
     NR>1 && $1 != "" {
-        if ($3=="tcp" || $3=="both")
-            print "add rule ip vlongx prerouting tcp dport "$2" dnat to "$4":"$5;
-        if ($3=="udp" || $3=="both")
-            print "add rule ip vlongx prerouting udp dport "$2" dnat to "$4":"$5;
-        print "add rule ip vlongx postrouting ip daddr "$4" masquerade";
+        if ($3=="tcp" || $3=="both") {
+            print "add rule ip vlongx prerouting tcp dport "$2" dnat to "$4":"$5
+            print "add rule inet vlongx_filter forward ip daddr "$4" tcp dport "$5" accept"
+        }
+        if ($3=="udp" || $3=="both") {
+            print "add rule ip vlongx prerouting udp dport "$2" dnat to "$4":"$5
+            print "add rule inet vlongx_filter forward ip daddr "$4" udp dport "$5" accept"
+        }
+        print "add rule ip vlongx postrouting ip daddr "$4" masquerade"
     }' "$VL_RULE_DB" >> "$VL_NFT_FILE"
 
     success "已生成规则文件: $VL_NFT_FILE"
@@ -56,9 +67,9 @@ NFT
 apply_ruleset() {
     require_root
     render_ruleset
-    nft -c -f "$VL_NFT_FILE"
-    nft -f "$VL_NFT_FILE"
-    systemctl restart nftables >/dev/null 2>&1 || true
+    install_nft_main_conf
+    nft -c -f /etc/nftables.conf
+    systemctl restart nftables
     success "规则已应用"
 }
 
