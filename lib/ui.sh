@@ -4,11 +4,7 @@ set -euo pipefail
 VL_LANG_FILE="/etc/vlongx/lang"
 
 get_lang() {
-    if [ -f "$VL_LANG_FILE" ]; then
-        cat "$VL_LANG_FILE"
-    else
-        echo "zh"
-    fi
+    [ -f "$VL_LANG_FILE" ] && cat "$VL_LANG_FILE" || echo "zh"
 }
 
 set_lang() {
@@ -29,8 +25,8 @@ tr_text() {
         zh:subtitle) echo "增强安装版 v1.0" ;;
         en:subtitle) echo "Enhanced Setup v1.0" ;;
 
-        zh:info_title) echo "服务器信息" ;;
-        en:info_title) echo "Server Information" ;;
+        zh:box_title) echo "面板信息" ;;
+        en:box_title) echo "Panel Information" ;;
 
         zh:server_ip) echo "服务器 IP" ;;
         en:server_ip) echo "Server IP" ;;
@@ -96,59 +92,24 @@ tr_text() {
     esac
 }
 
-apply_terminal_theme() {
-    local term="${TERM:-}"
-    case "$term" in
-        xterm*|screen*|tmux*|rxvt*|alacritty*|foot*|wezterm*|kitty*)
-            printf '\033]10;#7DFF80\007' 2>/dev/null || true
-            printf '\033]11;#05070B\007' 2>/dev/null || true
-            printf '\033]12;#F7F7F7\007' 2>/dev/null || true
-            ;;
-    esac
-    printf '\033[0m\033[40m\033[2J\033[H'
-}
-
 get_server_ip() {
     local ip
     ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
-    if [ -z "${ip:-}" ]; then
-        ip="127.0.0.1"
-    fi
-    echo "$ip"
-}
-
-repeat_char() {
-    local char="$1" count="$2"
-    printf '%*s' "$count" '' | tr ' ' "$char"
-}
-
-print_box_line() {
-    local left="$1" fill="$2" right="$3" width="$4"
-    printf "%b%s%b%s%b%s%b\n" "$C_BORDER" "$left" "$C_RESET" "$(repeat_char "$fill" "$width")" "$C_BORDER" "$right" "$C_RESET"
-}
-
-print_box_text() {
-    local text="$1" width="$2"
-    local plain_len padding
-    plain_len=$(printf "%s" "$text" | sed 's/\x1b\[[0-9;]*m//g' | awk '{print length}')
-    padding=$(( width - plain_len ))
-    [ "$padding" -lt 0 ] && padding=0
-    printf "%b│%b %s%*s %b│%b\n" "$C_BORDER" "$C_RESET" "$text" "$padding" "" "$C_BORDER" "$C_RESET"
+    [ -n "${ip:-}" ] && echo "$ip" || echo "127.0.0.1"
 }
 
 init_colors() {
     C_RESET='\033[0m'
-    C_BG='\033[40m'
-    C_TITLE='\033[38;5;212m'
-    C_TITLE_SHADOW='\033[38;5;168m'
-    C_GREEN='\033[38;5;82m'
-    C_GREEN2='\033[38;5;77m'
-    C_BLUE='\033[38;5;39m'
-    C_ORANGE='\033[38;5;215m'
-    C_RED='\033[38;5;203m'
-    C_WHITE='\033[38;5;252m'
-    C_DIM='\033[38;5;240m'
-    C_BORDER='\033[38;5;77m'
+    C_TITLE='\033[38;5;169m'
+    C_SUB='\033[38;5;32m'
+    C_MENU1='\033[38;5;28m'
+    C_MENU2='\033[38;5;24m'
+    C_MENU3='\033[38;5;130m'
+    C_MENU4='\033[38;5;88m'
+    C_TEXT='\033[38;5;238m'
+    C_DIM='\033[38;5;245m'
+    C_BOX='\033[38;5;65m'
+    C_HL='\033[38;5;161m'
 }
 
 show_logo() {
@@ -164,22 +125,20 @@ TXT
 }
 
 show_info_box() {
-    local width=62
-    print_box_line "┌" "─" "┐" "$width"
-    print_box_text "${C_GREEN}$(tr_text info_title)${C_RESET}" "$width"
-    print_box_text "${C_WHITE}• $(tr_text server_ip): ${C_ORANGE}$(get_server_ip)${C_RESET}" "$width"
-    print_box_text "${C_WHITE}• $(tr_text rule_store): ${C_DIM}/etc/vlongx/rules.db${C_RESET}" "$width"
-    print_box_text "${C_WHITE}• $(tr_text version): ${C_DIM}v1.0${C_RESET}" "$width"
-    print_box_line "└" "─" "┘" "$width"
+    echo -e "${C_BOX}┌──────────────────────────────────────────────────────┐${C_RESET}"
+    printf "${C_BOX}│${C_RESET} %-52s ${C_BOX}│${C_RESET}\n" "$(tr_text box_title)"
+    printf "${C_BOX}│${C_RESET} • %-12s: ${C_HL}%-34s${C_RESET} ${C_BOX}│${C_RESET}\n" "$(tr_text server_ip)" "$(get_server_ip)"
+    printf "${C_BOX}│${C_RESET} • %-12s: ${C_DIM}%-34s${C_RESET} ${C_BOX}│${C_RESET}\n" "$(tr_text rule_store)" "/etc/vlongx/rules.db"
+    printf "${C_BOX}│${C_RESET} • %-12s: ${C_DIM}%-34s${C_RESET} ${C_BOX}│${C_RESET}\n" "$(tr_text version)" "v1.0"
+    echo -e "${C_BOX}└──────────────────────────────────────────────────────┘${C_RESET}"
 }
 
 show_banner() {
     init_colors
-    apply_terminal_theme
-
+    clear
     show_logo
     echo -e "${C_TITLE}$(tr_text title)${C_RESET}"
-    echo -e "${C_BLUE}$(tr_text subtitle)${C_RESET}"
+    echo -e "${C_SUB}$(tr_text subtitle)${C_RESET}"
     echo ""
     show_info_box
     echo ""
@@ -187,7 +146,7 @@ show_banner() {
 
 switch_language() {
     echo ""
-    echo -e "${C_BLUE}$(tr_text choose_lang)${C_RESET}"
+    echo -e "${C_SUB}$(tr_text choose_lang)${C_RESET}"
     echo ""
     printf "%s" "$(tr_text choose_lang_prompt)"
     read -r lang_choice
@@ -212,99 +171,44 @@ main_menu() {
 
     while true; do
         show_banner
-
-        echo -e "${C_GREEN}$(tr_text m1)${C_RESET}"
-        echo -e "${C_GREEN2}$(tr_text m2)${C_RESET}"
-        echo -e "${C_BLUE}$(tr_text m3)${C_RESET}"
-        echo -e "${C_GREEN2}$(tr_text m4)${C_RESET}"
-        echo -e "${C_BLUE}$(tr_text m5)${C_RESET}"
+        echo -e "${C_MENU1}$(tr_text m1)${C_RESET}"
+        echo -e "${C_MENU1}$(tr_text m2)${C_RESET}"
+        echo -e "${C_MENU2}$(tr_text m3)${C_RESET}"
+        echo -e "${C_MENU3}$(tr_text m4)${C_RESET}"
+        echo -e "${C_MENU2}$(tr_text m5)${C_RESET}"
         echo -e "${C_TITLE}$(tr_text m6)${C_RESET}"
-        echo -e "${C_ORANGE}$(tr_text m7)${C_RESET}"
-        echo -e "${C_RED}$(tr_text m0)${C_RESET}"
+        echo -e "${C_MENU3}$(tr_text m7)${C_RESET}"
+        echo -e "${C_MENU4}$(tr_text m0)${C_RESET}"
         echo ""
-        echo -e "${C_DIM}$(repeat_char '─' 44)${C_RESET}"
+        echo -e "${C_DIM}────────────────────────────────────${C_RESET}"
         printf "%s" "$(tr_text prompt)"
         read -r choice
 
         case "$choice" in
-            1)
-                install_panel_service
-                printf "%s" "$(tr_text press_enter)"
-                read -r
-                ;;
-            2)
-                add_rule_cli
-                printf "%s" "$(tr_text press_enter)"
-                read -r
-                ;;
-            3)
-                list_rules
-                printf "%s" "$(tr_text press_enter)"
-                read -r
-                ;;
-            4)
-                delete_rule_cli
-                printf "%s" "$(tr_text press_enter)"
-                read -r
-                ;;
-            5)
-                apply_ruleset
-                printf "%s" "$(tr_text press_enter)"
-                read -r
-                ;;
-            6)
-                show_panel_status
-                printf "%s" "$(tr_text press_enter)"
-                read -r
-                ;;
-            7)
-                switch_language
-                sleep 1
-                ;;
-            0)
-                echo -e "${C_GREEN}$(tr_text exit_msg)${C_RESET}"
-                printf '\033[0m'
-                exit 0
-                ;;
-            *)
-                warn "$(tr_text invalid)"
-                sleep 1
-                ;;
+            1) install_panel_service; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            2) add_rule_cli; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            3) list_rules; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            4) delete_rule_cli; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            5) apply_ruleset; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            6) show_panel_status; printf "%s" "$(tr_text press_enter)"; read -r ;;
+            7) switch_language; sleep 1 ;;
+            0) echo -e "${C_SUB}$(tr_text exit_msg)${C_RESET}"; exit 0 ;;
+            *) warn "$(tr_text invalid)"; sleep 1 ;;
         esac
     done
 }
 
 main() {
     case "${1:-menu}" in
-        menu)
-            main_menu
-            ;;
-        add)
-            add_rule_cli
-            ;;
-        list)
-            list_rules
-            ;;
-        delete|del)
-            delete_rule_cli
-            ;;
-        apply)
-            apply_ruleset
-            ;;
-        panel-install)
-            install_panel_service
-            ;;
-        panel-status)
-            show_panel_status
-            ;;
-        lang-zh)
-            set_lang zh
-            ;;
-        lang-en)
-            set_lang en
-            ;;
-        *)
-            main_menu
-            ;;
+        menu) main_menu ;;
+        add) add_rule_cli ;;
+        list) list_rules ;;
+        delete|del) delete_rule_cli ;;
+        apply) apply_ruleset ;;
+        panel-install) install_panel_service ;;
+        panel-status) show_panel_status ;;
+        lang-zh) set_lang zh ;;
+        lang-en) set_lang en ;;
+        *) main_menu ;;
     esac
 }
