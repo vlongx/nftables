@@ -6,7 +6,7 @@
 INSTALL_DIR="/usr/local/bin"
 LIB_DIR="$INSTALL_DIR/lib"
 SHORTCUT_PATH="/usr/local/bin/vl"
-REPO_RAW_URL="https://raw.githubusercontent.com/<github-user>/vlongx/main"
+REPO_RAW_URL="https://raw.githubusercontent.com/vlongx/nftables/main"
 LIB_FILES=("core.sh" "rules.sh" "server.sh" "ui.sh")
 _RED='\033[0;31m'
 _GREEN='\033[0;32m'
