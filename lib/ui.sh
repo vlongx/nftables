@@ -29,8 +29,8 @@ tr_text() {
         zh:subtitle) echo "增强安装版 v1.0" ;;
         en:subtitle) echo "Enhanced Setup v1.0" ;;
 
-        zh:server_info) echo "服务器信息" ;;
-        en:server_info) echo "Server Information" ;;
+        zh:info_title) echo "服务器信息" ;;
+        en:info_title) echo "Server Information" ;;
 
         zh:server_ip) echo "服务器 IP" ;;
         en:server_ip) echo "Server IP" ;;
@@ -96,6 +96,18 @@ tr_text() {
     esac
 }
 
+apply_terminal_theme() {
+    local term="${TERM:-}"
+    case "$term" in
+        xterm*|screen*|tmux*|rxvt*|alacritty*|foot*|wezterm*|kitty*)
+            printf '\033]10;#7DFF80\007' 2>/dev/null || true
+            printf '\033]11;#05070B\007' 2>/dev/null || true
+            printf '\033]12;#F7F7F7\007' 2>/dev/null || true
+            ;;
+    esac
+    printf '\033[0m\033[40m\033[2J\033[H'
+}
+
 get_server_ip() {
     local ip
     ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
@@ -105,22 +117,42 @@ get_server_ip() {
     echo "$ip"
 }
 
-draw_line() {
-    printf '%*s\n' "$1" '' | tr ' ' '─'
+repeat_char() {
+    local char="$1" count="$2"
+    printf '%*s' "$count" '' | tr ' ' "$char"
 }
 
-show_banner() {
-    clear
-    printf '\033[2J\033[H'
+print_box_line() {
+    local left="$1" fill="$2" right="$3" width="$4"
+    printf "%b%s%b%s%b%s%b\n" "$C_BORDER" "$left" "$C_RESET" "$(repeat_char "$fill" "$width")" "$C_BORDER" "$right" "$C_RESET"
+}
 
-    local pink='\033[38;5;212m'
-    local green='\033[38;5;82m'
-    local blue='\033[38;5;45m'
-    local orange='\033[38;5;216m'
-    local white='\033[38;5;252m'
-    local reset='\033[0m'
+print_box_text() {
+    local text="$1" width="$2"
+    local plain_len padding
+    plain_len=$(printf "%s" "$text" | sed 's/\x1b\[[0-9;]*m//g' | awk '{print length}')
+    padding=$(( width - plain_len ))
+    [ "$padding" -lt 0 ] && padding=0
+    printf "%b│%b %s%*s %b│%b\n" "$C_BORDER" "$C_RESET" "$text" "$padding" "" "$C_BORDER" "$C_RESET"
+}
 
-    echo -e "${pink}"
+init_colors() {
+    C_RESET='\033[0m'
+    C_BG='\033[40m'
+    C_TITLE='\033[38;5;212m'
+    C_TITLE_SHADOW='\033[38;5;168m'
+    C_GREEN='\033[38;5;82m'
+    C_GREEN2='\033[38;5;77m'
+    C_BLUE='\033[38;5;39m'
+    C_ORANGE='\033[38;5;215m'
+    C_RED='\033[38;5;203m'
+    C_WHITE='\033[38;5;252m'
+    C_DIM='\033[38;5;240m'
+    C_BORDER='\033[38;5;77m'
+}
+
+show_logo() {
+    echo -e "${C_TITLE}"
     cat <<'TXT'
 ██    ██ ██       ██████  ███    ██  ██████  ██   ██
 ██    ██ ██      ██    ██ ████   ██ ██       ██   ██
@@ -128,24 +160,34 @@ show_banner() {
  ██  ██  ██      ██    ██ ██  ██ ██ ██    ██ ██   ██
   ████   ███████  ██████  ██   ████  ██████  ██   ██
 TXT
-    echo -e "${reset}"
+    echo -e "${C_RESET}"
+}
 
-    echo -e "${pink}$(tr_text title)${reset}"
-    echo -e "${blue}$(tr_text subtitle)${reset}"
+show_info_box() {
+    local width=62
+    print_box_line "┌" "─" "┐" "$width"
+    print_box_text "${C_GREEN}$(tr_text info_title)${C_RESET}" "$width"
+    print_box_text "${C_WHITE}• $(tr_text server_ip): ${C_ORANGE}$(get_server_ip)${C_RESET}" "$width"
+    print_box_text "${C_WHITE}• $(tr_text rule_store): ${C_DIM}/etc/vlongx/rules.db${C_RESET}" "$width"
+    print_box_text "${C_WHITE}• $(tr_text version): ${C_DIM}v1.0${C_RESET}" "$width"
+    print_box_line "└" "─" "┘" "$width"
+}
+
+show_banner() {
+    init_colors
+    apply_terminal_theme
+
+    show_logo
+    echo -e "${C_TITLE}$(tr_text title)${C_RESET}"
+    echo -e "${C_BLUE}$(tr_text subtitle)${C_RESET}"
     echo ""
-
-    echo -e "${green}┌──────────────────────────────────────────────────────────────┐${reset}"
-    printf "${green}│${reset} %-60s ${green}│${reset}\n" "$(tr_text server_info)"
-    printf "${green}│${reset} • %s: ${orange}%-47s${reset} ${green}│${reset}\n" "$(tr_text server_ip)" "$(get_server_ip)"
-    printf "${green}│${reset} • %s: ${white}%-45s${reset} ${green}│${reset}\n" "$(tr_text rule_store)" "/etc/vlongx/rules.db"
-    printf "${green}│${reset} • %s: ${white}%-52s${reset} ${green}│${reset}\n" "$(tr_text version)" "v1.0"
-    echo -e "${green}└──────────────────────────────────────────────────────────────┘${reset}"
+    show_info_box
     echo ""
 }
 
 switch_language() {
     echo ""
-    echo -e "${_CYAN}$(tr_text choose_lang)${_NC}"
+    echo -e "${C_BLUE}$(tr_text choose_lang)${C_RESET}"
     echo ""
     printf "%s" "$(tr_text choose_lang_prompt)"
     read -r lang_choice
@@ -166,25 +208,21 @@ switch_language() {
 }
 
 main_menu() {
-    local green='\033[38;5;82m'
-    local blue='\033[38;5;45m'
-    local pink='\033[38;5;212m'
-    local orange='\033[38;5;216m'
-    local reset='\033[0m'
+    init_colors
 
     while true; do
         show_banner
 
-        echo -e "${green}$(tr_text m1)${reset}"
-        echo -e "${green}$(tr_text m2)${reset}"
-        echo -e "${blue}$(tr_text m3)${reset}"
-        echo -e "${green}$(tr_text m4)${reset}"
-        echo -e "${blue}$(tr_text m5)${reset}"
-        echo -e "${pink}$(tr_text m6)${reset}"
-        echo -e "${orange}$(tr_text m7)${reset}"
-        echo -e "${orange}$(tr_text m0)${reset}"
+        echo -e "${C_GREEN}$(tr_text m1)${C_RESET}"
+        echo -e "${C_GREEN2}$(tr_text m2)${C_RESET}"
+        echo -e "${C_BLUE}$(tr_text m3)${C_RESET}"
+        echo -e "${C_GREEN2}$(tr_text m4)${C_RESET}"
+        echo -e "${C_BLUE}$(tr_text m5)${C_RESET}"
+        echo -e "${C_TITLE}$(tr_text m6)${C_RESET}"
+        echo -e "${C_ORANGE}$(tr_text m7)${C_RESET}"
+        echo -e "${C_RED}$(tr_text m0)${C_RESET}"
         echo ""
-        echo -e "\033[38;5;240m────────────────────────────────────────────\033[0m"
+        echo -e "${C_DIM}$(repeat_char '─' 44)${C_RESET}"
         printf "%s" "$(tr_text prompt)"
         read -r choice
 
@@ -224,7 +262,8 @@ main_menu() {
                 sleep 1
                 ;;
             0)
-                echo -e "${_GREEN}$(tr_text exit_msg)${_NC}"
+                echo -e "${C_GREEN}$(tr_text exit_msg)${C_RESET}"
+                printf '\033[0m'
                 exit 0
                 ;;
             *)
