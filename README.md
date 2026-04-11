@@ -30,6 +30,17 @@ sudo systemctl daemon-reload
 ```
 然后再执行安装命令。
 
+#### 常用命令
+```bash
+vl menu
+vl add
+vl list
+vl delete
+vl apply
+vl status
+vl lang-zh
+vl lang-en
+```
 
 ---
 ### 核心特性
@@ -42,6 +53,7 @@ sudo systemctl daemon-reload
 - 🌐 内置简易管理面板
 - 🔧 支持 systemd 服务托管
 - 📈 便于后续扩展 Web API 与鉴权系统
+
 
 ---
 ### 📊 nftables / realm / gost 转发对比
