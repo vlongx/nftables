@@ -82,9 +82,5 @@ nftables/
 │   ├── rules.sh
 │   ├── server.sh
 │   └── ui.sh
-├── systemd/
-│   └── vl-panel.service
-├── web/
-│   └── vl-panel.html
 ├── README.md
 └── vl.sh
