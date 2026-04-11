@@ -1,4 +1,4 @@
-# VLONGX NFTABLES
+# NFTABLES
 
 一个基于 `nftables` 的端口转发管理工具，提供：
 
@@ -8,6 +8,17 @@
 - nftables 规则生成与应用
 - 简单静态面板
 - systemd 后台服务管理
+---
+## 安装方式
+
+### 海外服务器
+```bash
+wget -qO- https://raw.githubusercontent.com/vlongx/nftables/main/vl.sh | sudo bash -s install
+
+### 国内服务器
+```bash
+wget -qO- https://ghfast.top/https://raw.githubusercontent.com/vlongx/nftables/main/vl.sh | sudo bash -s install
+
 
 ---
 
