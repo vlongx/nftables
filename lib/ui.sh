@@ -23,35 +23,47 @@ tr_text() {
     lang="$(get_lang)"
 
     case "$lang:$key" in
-        zh:panel_title) echo "VLONGX 面板" ;;
-        en:panel_title) echo "VLONGX PANEL" ;;
+        zh:title) echo "VLONGX 面板" ;;
+        en:title) echo "VLONGX Panel" ;;
 
         zh:subtitle) echo "增强安装版 v1.0" ;;
         en:subtitle) echo "Enhanced Setup v1.0" ;;
 
-        zh:menu_1) echo "1) 添加转发规则" ;;
-        en:menu_1) echo "1) Add forwarding rule" ;;
+        zh:server_info) echo "服务器信息" ;;
+        en:server_info) echo "Server Information" ;;
 
-        zh:menu_2) echo "2) 查看规则列表" ;;
-        en:menu_2) echo "2) List rules" ;;
+        zh:server_ip) echo "服务器 IP" ;;
+        en:server_ip) echo "Server IP" ;;
 
-        zh:menu_3) echo "3) 删除转发规则" ;;
-        en:menu_3) echo "3) Delete rule" ;;
+        zh:rule_store) echo "规则存储" ;;
+        en:rule_store) echo "Rule Store" ;;
 
-        zh:menu_4) echo "4) 应用 nftables 规则" ;;
-        en:menu_4) echo "4) Apply nftables rules" ;;
+        zh:version) echo "版本" ;;
+        en:version) echo "Version" ;;
 
-        zh:menu_5) echo "5) 安装或重启面板" ;;
-        en:menu_5) echo "5) Install or restart panel" ;;
+        zh:m1) echo "1) 安装并初始化 VLONGX 面板" ;;
+        en:m1) echo "1) Install & Set Up VLONGX Panel" ;;
 
-        zh:menu_6) echo "6) 查看面板状态" ;;
-        en:menu_6) echo "6) Show panel status" ;;
+        zh:m2) echo "2) 添加转发规则" ;;
+        en:m2) echo "2) Add forwarding rule" ;;
 
-        zh:menu_7) echo "7) 切换语言 / Switch Language" ;;
-        en:menu_7) echo "7) Switch Language / 切换语言" ;;
+        zh:m3) echo "3) 查看规则列表" ;;
+        en:m3) echo "3) List rules" ;;
 
-        zh:menu_0) echo "0) 退出" ;;
-        en:menu_0) echo "0) Exit" ;;
+        zh:m4) echo "4) 删除转发规则" ;;
+        en:m4) echo "4) Delete rule" ;;
+
+        zh:m5) echo "5) 应用 nftables 规则" ;;
+        en:m5) echo "5) Apply nftables rules" ;;
+
+        zh:m6) echo "6) 查看面板状态" ;;
+        en:m6) echo "6) Show panel status" ;;
+
+        zh:m7) echo "7) 切换语言 / Switch Language" ;;
+        en:m7) echo "7) Switch Language / 切换语言" ;;
+
+        zh:m0) echo "0) 退出" ;;
+        en:m0) echo "0) Exit" ;;
 
         zh:prompt) echo -n "请输入选项 [0-7]: " ;;
         en:prompt) echo -n "Please enter your choice [0-7]: " ;;
@@ -62,8 +74,8 @@ tr_text() {
         zh:invalid) echo "无效选项，请重新输入" ;;
         en:invalid) echo "Invalid option, please try again" ;;
 
-        zh:exit) echo "已退出。" ;;
-        en:exit) echo "Exited." ;;
+        zh:exit_msg) echo "已退出。" ;;
+        en:exit_msg) echo "Exited." ;;
 
         zh:choose_lang) echo -e "1) 中文\n2) English" ;;
         en:choose_lang) echo -e "1) 中文\n2) English" ;;
@@ -71,8 +83,11 @@ tr_text() {
         zh:choose_lang_prompt) echo -n "请选择语言 [1-2]: " ;;
         en:choose_lang_prompt) echo -n "Choose language [1-2]: " ;;
 
-        zh:lang_saved) echo "语言已切换为中文" ;;
-        en:lang_saved) echo "Language switched to English" ;;
+        zh:lang_zh_saved) echo "语言已切换为中文" ;;
+        en:lang_zh_saved) echo "Language switched to Chinese" ;;
+
+        zh:lang_en_saved) echo "语言已切换为 English" ;;
+        en:lang_en_saved) echo "Language switched to English" ;;
 
         zh:lang_invalid) echo "语言选项无效" ;;
         en:lang_invalid) echo "Invalid language option" ;;
@@ -81,11 +96,31 @@ tr_text() {
     esac
 }
 
+get_server_ip() {
+    local ip
+    ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    if [ -z "${ip:-}" ]; then
+        ip="127.0.0.1"
+    fi
+    echo "$ip"
+}
+
+draw_line() {
+    printf '%*s\n' "$1" '' | tr ' ' '─'
+}
+
 show_banner() {
     clear
     printf '\033[2J\033[H'
 
-    echo -e "\033[38;5;213m"
+    local pink='\033[38;5;212m'
+    local green='\033[38;5;82m'
+    local blue='\033[38;5;45m'
+    local orange='\033[38;5;216m'
+    local white='\033[38;5;252m'
+    local reset='\033[0m'
+
+    echo -e "${pink}"
     cat <<'TXT'
 ██    ██ ██       ██████  ███    ██  ██████  ██   ██
 ██    ██ ██      ██    ██ ████   ██ ██       ██   ██
@@ -93,10 +128,18 @@ show_banner() {
  ██  ██  ██      ██    ██ ██  ██ ██ ██    ██ ██   ██
   ████   ███████  ██████  ██   ████  ██████  ██   ██
 TXT
-    echo -e "\033[0m"
+    echo -e "${reset}"
 
-    echo -e "\033[38;5;135m$(tr_text panel_title)${_NC}"
-    echo -e "\033[38;5;45m$(tr_text subtitle)${_NC}"
+    echo -e "${pink}$(tr_text title)${reset}"
+    echo -e "${blue}$(tr_text subtitle)${reset}"
+    echo ""
+
+    echo -e "${green}┌──────────────────────────────────────────────────────────────┐${reset}"
+    printf "${green}│${reset} %-60s ${green}│${reset}\n" "$(tr_text server_info)"
+    printf "${green}│${reset} • %s: ${orange}%-47s${reset} ${green}│${reset}\n" "$(tr_text server_ip)" "$(get_server_ip)"
+    printf "${green}│${reset} • %s: ${white}%-45s${reset} ${green}│${reset}\n" "$(tr_text rule_store)" "/etc/vlongx/rules.db"
+    printf "${green}│${reset} • %s: ${white}%-52s${reset} ${green}│${reset}\n" "$(tr_text version)" "v1.0"
+    echo -e "${green}└──────────────────────────────────────────────────────────────┘${reset}"
     echo ""
 }
 
@@ -110,11 +153,11 @@ switch_language() {
     case "$lang_choice" in
         1)
             set_lang zh
-            success "$(tr_text lang_saved)"
+            success "$(tr_text lang_zh_saved)"
             ;;
         2)
             set_lang en
-            success "$(tr_text lang_saved)"
+            success "$(tr_text lang_en_saved)"
             ;;
         *)
             warn "$(tr_text lang_invalid)"
@@ -123,43 +166,51 @@ switch_language() {
 }
 
 main_menu() {
+    local green='\033[38;5;82m'
+    local blue='\033[38;5;45m'
+    local pink='\033[38;5;212m'
+    local orange='\033[38;5;216m'
+    local reset='\033[0m'
+
     while true; do
         show_banner
-        echo -e "\033[38;5;46m$(tr_text menu_1)${_NC}"
-        echo -e "\033[38;5;82m$(tr_text menu_2)${_NC}"
-        echo -e "\033[38;5;118m$(tr_text menu_3)${_NC}"
-        echo -e "\033[38;5;45m$(tr_text menu_4)${_NC}"
-        echo -e "\033[38;5;213m$(tr_text menu_5)${_NC}"
-        echo -e "\033[38;5;51m$(tr_text menu_6)${_NC}"
-        echo -e "\033[38;5;220m$(tr_text menu_7)${_NC}"
-        echo -e "${_YELLOW}$(tr_text menu_0)${_NC}"
+
+        echo -e "${green}$(tr_text m1)${reset}"
+        echo -e "${green}$(tr_text m2)${reset}"
+        echo -e "${blue}$(tr_text m3)${reset}"
+        echo -e "${green}$(tr_text m4)${reset}"
+        echo -e "${blue}$(tr_text m5)${reset}"
+        echo -e "${pink}$(tr_text m6)${reset}"
+        echo -e "${orange}$(tr_text m7)${reset}"
+        echo -e "${orange}$(tr_text m0)${reset}"
         echo ""
+        echo -e "\033[38;5;240m────────────────────────────────────────────\033[0m"
         printf "%s" "$(tr_text prompt)"
         read -r choice
 
         case "$choice" in
             1)
-                add_rule_cli
+                install_panel_service
                 printf "%s" "$(tr_text press_enter)"
                 read -r
                 ;;
             2)
-                list_rules
+                add_rule_cli
                 printf "%s" "$(tr_text press_enter)"
                 read -r
                 ;;
             3)
-                delete_rule_cli
+                list_rules
                 printf "%s" "$(tr_text press_enter)"
                 read -r
                 ;;
             4)
-                apply_ruleset
+                delete_rule_cli
                 printf "%s" "$(tr_text press_enter)"
                 read -r
                 ;;
             5)
-                install_panel_service
+                apply_ruleset
                 printf "%s" "$(tr_text press_enter)"
                 read -r
                 ;;
@@ -173,7 +224,7 @@ main_menu() {
                 sleep 1
                 ;;
             0)
-                echo -e "${_GREEN}$(tr_text exit)${_NC}"
+                echo -e "${_GREEN}$(tr_text exit_msg)${_NC}"
                 exit 0
                 ;;
             *)
