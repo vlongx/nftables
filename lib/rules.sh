@@ -369,7 +369,7 @@ delete_rule_cli() {
 
     echo ""
     echo "即将删除以下规则："
-    awk -F'|' -v id="$id" 'NR>1 && $1==id {printf "  ID: %s | 端口: %s | 目标: %s:%s | 备注: %s\\n",$1,$2,$6,$7,$8}' "$VL_RULE_DB"
+    awk -F'|' -v id="$id" 'NR>1 && $1==id {printf "  ID: %s | 端口: %s | 目标: %s:%s | 备注: %s\n",$1,$2,$6,$7,$8}' "$VL_RULE_DB"
     local confirm
     read -rp '确认删除？[y/N]: ' confirm
     case "${confirm,,}" in
