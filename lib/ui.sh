@@ -41,11 +41,14 @@ tr_text() {
         zh:m6) echo "6) 切换语言 / Switch Language" ;;
         en:m6) echo "6) Switch Language / 切换语言" ;;
 
+        zh:m7) echo "7) 检查更新 / 更新脚本" ;;
+        en:m7) echo "7) Check updates / Update script" ;;
+
         zh:m0) echo "0) 退出" ;;
         en:m0) echo "0) Exit" ;;
 
-        zh:prompt) echo -n "请输入选项 [0-6]: " ;;
-        en:prompt) echo -n "Please enter your choice [0-6]: " ;;
+        zh:prompt) echo -n "请输入选项 [0-7]: " ;;
+        en:prompt) echo -n "Please enter your choice [0-7]: " ;;
 
         zh:press_enter) echo -n "按回车继续..." ;;
         en:press_enter) echo -n "Press Enter to continue..." ;;
@@ -84,6 +87,7 @@ init_colors() {
     C_MENU3='\033[38;5;130m'
     C_MENU4='\033[38;5;31m'
     C_MENU5='\033[38;5;95m'
+    C_MENU7='\033[38;5;136m'
     C_MENU6='\033[38;5;136m'
     C_DIM='\033[38;5;245m'
 }
@@ -145,6 +149,7 @@ main_menu() {
         echo -e "${C_MENU4}$(tr_text m4)${C_RESET}"
         echo -e "${C_MENU5}$(tr_text m5)${C_RESET}"
         echo -e "${C_MENU6}$(tr_text m6)${C_RESET}"
+        echo -e "${C_MENU7}$(tr_text m7)${C_RESET}"
         echo -e "${C_DIM}$(tr_text m0)${C_RESET}"
         echo ""
         echo -e "${C_DIM}────────────────────────────────────────────${C_RESET}"
@@ -158,6 +163,7 @@ main_menu() {
             4) apply_ruleset; printf "%s" "$(tr_text press_enter)"; read -r ;;
             5) show_runtime_status; printf "%s" "$(tr_text press_enter)"; read -r ;;
             6) switch_language; sleep 1 ;;
+            7) update_cli; printf "%s" "$(tr_text press_enter)"; read -r ;;
             0) echo -e "${C_SUB}$(tr_text exit_msg)${C_RESET}"; exit 0 ;;
             *) warn "$(tr_text invalid)"; sleep 1 ;;
         esac
@@ -172,6 +178,7 @@ main() {
         delete|del) delete_rule_cli ;;
         apply) apply_ruleset ;;
         status) show_runtime_status ;;
+        update) update_cli ;;
         lang-zh) set_lang zh ;;
         lang-en) set_lang en ;;
         *) main_menu ;;

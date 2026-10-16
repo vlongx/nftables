@@ -51,6 +51,51 @@ _bootstrap() {
     echo ""
 }
 
+update_cli() {
+    [ "$(id -u)" -eq 0 ] || { echo "需要 root 权限"; return 1; }
+    local stage backup f answer failed=0 same=1
+    stage="$(mktemp -d)" || return 1
+    backup="$(mktemp -d)" || { rm -rf "$stage"; return 1; }
+    echo "正在检查 GitHub 最新版本..."
+    for f in vl.sh lib/core.sh lib/rules.sh lib/server.sh lib/ui.sh; do
+        mkdir -p "$stage/$(dirname "$f")"
+        if ! _download "$REPO_RAW_URL/$f" "$stage/$f" || [ ! -s "$stage/$f" ] || ! bash -n "$stage/$f"; then
+            echo "下载或校验失败：$f；未修改当前安装"
+            rm -rf "$stage" "$backup"
+            return 1
+        fi
+        cmp -s "$stage/$f" "$INSTALL_DIR/$f" || same=0
+    done
+    if [ "$same" -eq 1 ]; then
+        echo "当前已是最新版本"
+        rm -rf "$stage" "$backup"
+        return 0
+    fi
+    read -rp "发现更新，输入 YES 确认安装: " answer
+    if [ "$answer" != "YES" ]; then
+        echo "已取消"
+        rm -rf "$stage" "$backup"
+        return 0
+    fi
+    for f in vl.sh lib/core.sh lib/rules.sh lib/server.sh lib/ui.sh; do
+        mkdir -p "$backup/$(dirname "$f")"
+        cp -p "$INSTALL_DIR/$f" "$backup/$f" || { rm -rf "$stage" "$backup"; return 1; }
+    done
+    for f in vl.sh lib/core.sh lib/rules.sh lib/server.sh lib/ui.sh; do
+        cp "$stage/$f" "$INSTALL_DIR/$f" && chmod 755 "$INSTALL_DIR/$f" || { failed=1; break; }
+    done
+    if [ "$failed" -ne 0 ]; then
+        echo "更新失败，恢复旧文件..."
+        for f in vl.sh lib/core.sh lib/rules.sh lib/server.sh lib/ui.sh; do
+            cp -p "$backup/$f" "$INSTALL_DIR/$f" || true
+        done
+        rm -rf "$stage" "$backup"
+        return 1
+    fi
+    rm -rf "$stage" "$backup"
+    echo "更新完成。已保留规则数据库和系统配置；重新执行 vl menu 即可。"
+}
+
 _load_libs() {
     if [ ! -d "$LIB_DIR" ] || [ ! -f "$LIB_DIR/core.sh" ]; then
         echo -e "${_RED}错误: 未找到模块目录，请先安装${_NC}"

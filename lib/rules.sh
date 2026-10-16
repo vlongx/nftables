@@ -39,7 +39,18 @@ ensure_rule_db_schema() {
 
 next_rule_id() {
     ensure_rule_db_schema
-    awk -F'|' 'NR>1{if($1>m)m=$1}END{print m+1}' "$VL_RULE_DB"
+    local counter_file="$VL_CONF_DIR/last_rule_id" max_id last_id next_id
+    max_id="$(awk -F'|' 'NR>1 && $1 ~ /^[0-9]+$/ {if($1+0>m)m=$1+0} END{print m+0}' "$VL_RULE_DB")"
+    last_id=0
+    if [ -f "$counter_file" ]; then
+        read -r last_id < "$counter_file" || true
+        [[ "$last_id" =~ ^[0-9]+$ ]] || last_id=0
+    fi
+    [ "$max_id" -gt "$last_id" ] && last_id="$max_id"
+    next_id=$((last_id + 1))
+    printf '%s\n' "$next_id" > "${counter_file}.tmp"
+    mv "${counter_file}.tmp" "$counter_file"
+    printf '%s\n' "$next_id"
 }
 
 validate_proto() {
@@ -130,7 +141,8 @@ render_ruleset() {
     ensure_dirs
     ensure_rule_db_schema
 
-    cat > "$VL_NFT_FILE" <<'NFT'
+    local staging_file="${VL_NFT_FILE}.tmp.$"
+    cat > "$staging_file" <<'NFT'
 #!/usr/sbin/nft -f
 
 flush ruleset
@@ -159,31 +171,40 @@ NFT
         [ "$id" = "id" ] && continue
         [ -z "${id:-}" ] && continue
 
-        local input_match postrouting_suffix
+        local input_match postrouting_suffix resolved_target
+        resolved_target="$target_ip"
+        if ! is_ipv4 "$target_ip"; then
+            resolved_target="$(getent ahostsv4 "$target_ip" 2>/dev/null | awk 'NR==1 {print $1}')"
+            if [ -z "$resolved_target" ] || ! is_ipv4 "$resolved_target"; then
+                err "规则 #$id 目标域名解析失败：$target_ip；保留当前生效规则"
+                return 1
+            fi
+        fi
         input_match="$(build_input_match "$input_spec")"
-        postrouting_suffix="$(build_output_rule_suffix "$output_spec" "$target_ip")"
+        postrouting_suffix="$(build_output_rule_suffix "$output_spec" "$resolved_target")"
 
         if [ "$proto" = "tcp" ] || [ "$proto" = "both" ]; then
             if [ -n "$input_match" ]; then
-                echo "add rule ip vlongx prerouting $input_match tcp dport $listen_port dnat to $target_ip:$target_port" >> "$VL_NFT_FILE"
+                echo "add rule ip vlongx prerouting $input_match tcp dport $listen_port dnat to $resolved_target:$target_port" >> "$staging_file"
             else
-                echo "add rule ip vlongx prerouting tcp dport $listen_port dnat to $target_ip:$target_port" >> "$VL_NFT_FILE"
+                echo "add rule ip vlongx prerouting tcp dport $listen_port dnat to $resolved_target:$target_port" >> "$staging_file"
             fi
-            echo "add rule inet vlongx_filter forward ip daddr $target_ip tcp dport $target_port accept" >> "$VL_NFT_FILE"
+            echo "add rule inet vlongx_filter forward ip daddr $resolved_target tcp dport $target_port accept" >> "$staging_file"
         fi
 
         if [ "$proto" = "udp" ] || [ "$proto" = "both" ]; then
             if [ -n "$input_match" ]; then
-                echo "add rule ip vlongx prerouting $input_match udp dport $listen_port dnat to $target_ip:$target_port" >> "$VL_NFT_FILE"
+                echo "add rule ip vlongx prerouting $input_match udp dport $listen_port dnat to $resolved_target:$target_port" >> "$staging_file"
             else
-                echo "add rule ip vlongx prerouting udp dport $listen_port dnat to $target_ip:$target_port" >> "$VL_NFT_FILE"
+                echo "add rule ip vlongx prerouting udp dport $listen_port dnat to $resolved_target:$target_port" >> "$staging_file"
             fi
-            echo "add rule inet vlongx_filter forward ip daddr $target_ip udp dport $target_port accept" >> "$VL_NFT_FILE"
+            echo "add rule inet vlongx_filter forward ip daddr $resolved_target udp dport $target_port accept" >> "$staging_file"
         fi
 
-        echo "add rule ip vlongx postrouting $postrouting_suffix" >> "$VL_NFT_FILE"
+        echo "add rule ip vlongx postrouting $postrouting_suffix" >> "$staging_file"
     done < "$VL_RULE_DB"
 
+    mv "$staging_file" "$VL_NFT_FILE"
     success "已生成规则文件: $VL_NFT_FILE"
 }
 
@@ -315,6 +336,7 @@ list_rules() {
         [ "$id" = "id" ] && continue
         [ -z "${id:-}" ] && continue
 
+        echo -e "  ${C_TITLE}[ID: ${id}]${C_RESET}"
         echo -e "  ${C_KEY}• 中转：${C_RESET} ${C_VALUE}${input_spec}:${listen_port}${C_RESET} ${C_DIM}→${C_RESET} ${C_HL}${target_ip}:${target_port}${C_RESET}"
         echo -e "    ${C_KEY}协议：${C_RESET}${C_WARN}$(proto_show_text "$proto")${C_RESET}"
         echo -e "    ${C_KEY}入口：${C_RESET}${C_DIM}${input_spec}${C_RESET}"
@@ -345,6 +367,12 @@ delete_rule_cli() {
         return 1
     fi
 
+    echo ""
+    echo "即将删除以下规则："
+    awk -F'|' -v id="$id" 'NR>1 && $1==id {printf "  ID: %s | 端口: %s | 目标: %s:%s | 备注: %s\\n",$1,$2,$6,$7,$8}' "$VL_RULE_DB"
+    local confirm
+    read -rp '确认删除？输入 YES 继续: ' confirm
+    [ "$confirm" = "YES" ] || { warn "已取消删除"; return 0; }
     awk -F'|' -v id="$id" 'NR==1 || $1!=id' "$VL_RULE_DB" > "$VL_RULE_DB.tmp"
     mv "$VL_RULE_DB.tmp" "$VL_RULE_DB"
 
