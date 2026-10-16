@@ -371,8 +371,11 @@ delete_rule_cli() {
     echo "即将删除以下规则："
     awk -F'|' -v id="$id" 'NR>1 && $1==id {printf "  ID: %s | 端口: %s | 目标: %s:%s | 备注: %s\\n",$1,$2,$6,$7,$8}' "$VL_RULE_DB"
     local confirm
-    read -rp '确认删除？输入 YES 继续: ' confirm
-    [ "$confirm" = "YES" ] || { warn "已取消删除"; return 0; }
+    read -rp '确认删除？[y/N]: ' confirm
+    case "${confirm,,}" in
+        y|yes) ;;
+        *) warn "已取消删除"; return 0 ;;
+    esac
     awk -F'|' -v id="$id" 'NR==1 || $1!=id' "$VL_RULE_DB" > "$VL_RULE_DB.tmp"
     mv "$VL_RULE_DB.tmp" "$VL_RULE_DB"
 
