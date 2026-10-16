@@ -141,7 +141,8 @@ render_ruleset() {
     ensure_dirs
     ensure_rule_db_schema
 
-    cat > "$VL_NFT_FILE" <<'NFT'
+    local staging_file="${VL_NFT_FILE}.tmp.$"
+    cat > "$staging_file" <<'NFT'
 #!/usr/sbin/nft -f
 
 flush ruleset
@@ -170,31 +171,40 @@ NFT
         [ "$id" = "id" ] && continue
         [ -z "${id:-}" ] && continue
 
-        local input_match postrouting_suffix
+        local input_match postrouting_suffix resolved_target
+        resolved_target="$target_ip"
+        if ! is_ipv4 "$target_ip"; then
+            resolved_target="$(getent ahostsv4 "$target_ip" 2>/dev/null | awk 'NR==1 {print $1}')"
+            if [ -z "$resolved_target" ] || ! is_ipv4 "$resolved_target"; then
+                err "规则 #$id 目标域名解析失败：$target_ip；保留当前生效规则"
+                return 1
+            fi
+        fi
         input_match="$(build_input_match "$input_spec")"
-        postrouting_suffix="$(build_output_rule_suffix "$output_spec" "$target_ip")"
+        postrouting_suffix="$(build_output_rule_suffix "$output_spec" "$resolved_target")"
 
         if [ "$proto" = "tcp" ] || [ "$proto" = "both" ]; then
             if [ -n "$input_match" ]; then
-                echo "add rule ip vlongx prerouting $input_match tcp dport $listen_port dnat to $target_ip:$target_port" >> "$VL_NFT_FILE"
+                echo "add rule ip vlongx prerouting $input_match tcp dport $listen_port dnat to $resolved_target:$target_port" >> "$staging_file"
             else
-                echo "add rule ip vlongx prerouting tcp dport $listen_port dnat to $target_ip:$target_port" >> "$VL_NFT_FILE"
+                echo "add rule ip vlongx prerouting tcp dport $listen_port dnat to $resolved_target:$target_port" >> "$staging_file"
             fi
-            echo "add rule inet vlongx_filter forward ip daddr $target_ip tcp dport $target_port accept" >> "$VL_NFT_FILE"
+            echo "add rule inet vlongx_filter forward ip daddr $resolved_target tcp dport $target_port accept" >> "$staging_file"
         fi
 
         if [ "$proto" = "udp" ] || [ "$proto" = "both" ]; then
             if [ -n "$input_match" ]; then
-                echo "add rule ip vlongx prerouting $input_match udp dport $listen_port dnat to $target_ip:$target_port" >> "$VL_NFT_FILE"
+                echo "add rule ip vlongx prerouting $input_match udp dport $listen_port dnat to $resolved_target:$target_port" >> "$staging_file"
             else
-                echo "add rule ip vlongx prerouting udp dport $listen_port dnat to $target_ip:$target_port" >> "$VL_NFT_FILE"
+                echo "add rule ip vlongx prerouting udp dport $listen_port dnat to $resolved_target:$target_port" >> "$staging_file"
             fi
-            echo "add rule inet vlongx_filter forward ip daddr $target_ip udp dport $target_port accept" >> "$VL_NFT_FILE"
+            echo "add rule inet vlongx_filter forward ip daddr $resolved_target udp dport $target_port accept" >> "$staging_file"
         fi
 
-        echo "add rule ip vlongx postrouting $postrouting_suffix" >> "$VL_NFT_FILE"
+        echo "add rule ip vlongx postrouting $postrouting_suffix" >> "$staging_file"
     done < "$VL_RULE_DB"
 
+    mv "$staging_file" "$VL_NFT_FILE"
     success "已生成规则文件: $VL_NFT_FILE"
 }
 
